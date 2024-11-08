@@ -5,7 +5,7 @@ Facebook Messenger Bot Using [FB Chat](https://fbchat.readthedocs.io/en/stable/i
 ## Goals 📝
 
 - [x] Integrate OpenAI (GPT) in MessBotv2
-- [x] Integrate APIs in MessBotv2 
+- [x] Integrate APIs in MessBotv2
 - [x] Add More Details and Depth to MessBotv2
 
 ## Contribution ✔️
@@ -15,10 +15,5 @@ Facebook Messenger Bot Using [FB Chat](https://fbchat.readthedocs.io/en/stable/i
 
 ## Language Used 🚀
 
-* Python 3.0
-* MongoDB (Database | For Logs)
-
-
-
-
-
+- Python 3.0
+- MongoDB (Database | For Logs)
