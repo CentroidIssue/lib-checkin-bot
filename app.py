@@ -1,7 +1,8 @@
 import requests
 from flask import Flask, request
 
-import re, json
+import re
+import json
 from bs4 import BeautifulSoup
 from datetime import datetime, date, timedelta
 from dataclasses import dataclass
@@ -50,8 +51,11 @@ def webhook():
                 data["message"]["from"].get("language_code", None),
             )
             message = Message(
-                data["message"]["message_id"], user, chat, data["message"]["date"], text
-            )
+                data["message"]["message_id"],
+                user,
+                chat,
+                data["message"]["date"],
+                text)
 
             if text.startswith("/"):
                 print(f"chat_id: {chat.id}")
@@ -81,13 +85,12 @@ def checkin():
     code = data.get("code", None)
     if code is None:
         return "Code not found", 400
-    
     chat_id = data.get("chat_id", None)
     if chat_id is None:
         return "Chat ID not found", 400
-
     handleCode("0", chat_id, code)
     return "OK", 200
+
 
 def handle_command(user_id: str, chat_id: str, command: str):
     """_summary_
@@ -99,7 +102,9 @@ def handle_command(user_id: str, chat_id: str, command: str):
 
     match command:
         case "/start":
-            send_message(chat_id, "Welcome! I'm your bot. How can I assist you?")
+            send_message(
+                chat_id,
+                "Welcome! I'm your bot. How can I assist you?")
         case "/help":
             send_message(
                 chat_id,
@@ -129,7 +134,8 @@ def setWebhook(url: str) -> Union[str, dict]:
         Union[str, dict]: Response from the API, either error message or success message
     """
     try:
-        url = f"https://api.telegram.org/bot{config.BOT_TOKEN}/setWebhook?url={url}"
+        url = f"https://api.telegram.org/bot{
+            config.BOT_TOKEN}/setWebhook?url={url}"
         print(url)
         response = requests.get(url)
         return response.json()
@@ -155,7 +161,9 @@ def handleCode(chat_id: str, code: str) -> bool:
         if response == "Unable to find booking matching code":
             send_message(chat_id, response)
             return False
-        match = re.search(r"Already Checked In at: (\d{1,2}:\d{2}[ap]m)", response)
+        match = re.search(
+            r"Already Checked In at: (\d{1,2}:\d{2}[ap]m)",
+            response)
         if match:
             send_message(chat_id, f"Already checked in at {match.group(1)}")
             response_json = json.loads(response)
@@ -163,17 +171,21 @@ def handleCode(chat_id: str, code: str) -> bool:
             soup = BeautifulSoup(html_content, "html.parser")
 
             name_email = (
-                soup.find("dt", text="Name / Email:").find_next("dd").text.strip()
-            )
+                soup.find(
+                    "dt",
+                    text="Name / Email:").find_next("dd").text.strip())
             name, email = name_email.split(" / ")
-            location = soup.find("dt", text="Location:").find_next("dd").text.strip()
+            location = soup.find(
+                "dt", text="Location:").find_next("dd").text.strip()
             space = soup.find("dt", text="Space:").find_next("dd").text.strip()
             start_time = (
-                soup.find("dt", text="Start Time:").find_next("dd").text.strip()
-            )
+                soup.find(
+                    "dt",
+                    text="Start Time:").find_next("dd").text.strip())
             check_out_time = (
-                soup.find("dt", text="Check Out time:").find_next("dd").text.strip()
-            )
+                soup.find(
+                    "dt",
+                    text="Check Out time:").find_next("dd").text.strip())
 
             print("Name:", name)
             print("Email:", email)
@@ -187,9 +199,9 @@ def handleCode(chat_id: str, code: str) -> bool:
                 f"Name: {name}\nEmail: {email}\nLocation: {location}\nSpace: {space}\nStart Time: {start_time}\nCheck Out Time: {check_out_time}",
             )
             return False
-        
+
         # Todo: Add successfully checkin case
-        
+
         time = extract_date_time(response)
         if time is None:
             return False
@@ -205,9 +217,9 @@ def handleCode(chat_id: str, code: str) -> bool:
         minutes, seconds = divmod(remainder, 60)
 
         send_message(
-            chat_id,
-            f"The code will be executed at {time} ({int(hours)} hours {int(minutes)} minutes later)",
-        )
+            chat_id, f"The code will be executed at {time} ({
+                int(hours)} hours {
+                int(minutes)} minutes later)", )
 
         return True
 
@@ -265,19 +277,23 @@ def extract_date_time(res: str) -> date:
 
             # Convert the date and time to a datetime object
 
-            return datetime.strptime(f"{date_str} {time_str}", "%B %d, %Y %I:%M%p")
+            return datetime.strptime(
+                f"{date_str} {time_str}",
+                "%B %d, %Y %I:%M%p")
 
         pattern = r"until (\d{1,2}:\d{2}[ap]m).*?(\d{1,2}:\d{2}[ap]m)"
 
         # If the response is in the format "Unable to Check In for this booking until 7:55pm (booking starts at 8:00pm).", extract the time
         # An example is
         #   'Unable to Check In for this booking until 8:55am Saturday, November 2, 2024 (booking starts at 9:00am Saturday, November 2, 2024).'
-        #   This is likely the case when the booking is available on the same day
+        # This is likely the case when the booking is available on the same day
         match = re.search(pattern, res)  # "7:55am"
         if match:
             check_in_time = match.group(1)
             date_str = date.today().strftime("%B %d, %Y")
-            return datetime.strptime(f"{date_str} {check_in_time}", "%B %d, %Y %I:%M%p")
+            return datetime.strptime(
+                f"{date_str} {check_in_time}",
+                "%B %d, %Y %I:%M%p")
         else:
             # Likely due to already checkedin
             return None

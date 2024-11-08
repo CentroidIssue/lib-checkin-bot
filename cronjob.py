@@ -30,7 +30,10 @@ class JobAuth:
         self.password = password
 
     def eval(self):
-        return {"enable": self.enabled, "user": self.user, "password": self.password}
+        return {
+            "enable": self.enabled,
+            "user": self.user,
+            "password": self.password}
 
     def __str__(self):
         return json.dumps(self.eval())
