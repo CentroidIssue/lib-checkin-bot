@@ -7,13 +7,17 @@ import os
 import re
 from datetime import datetime
 import pytz
+import traceback
 
 singapore_tz = pytz.timezone("Asia/Singapore")
 
 url = "https://api.cron-job.org"
-api_key = config.CRON_JOB_API_KEY
 
-headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {config.CRON_JOB_API_KEY}",
+}
+
 
 class JobAuth:
     enabled: bool
@@ -75,12 +79,12 @@ class JobStatus:
 class JobSchedule:
     """
     The JobSchedule object represents the execution schedule of a job
-    
+
     See: https://docs.cron-job.org/rest-api.html#jobschedule
 
     Returns:
     """
-    
+
     def __init__(
         self,
         timezone: str = None,
@@ -108,26 +112,26 @@ class JobSchedule:
             str: The timezone of the job
         """
         return self._timezone
-    
+
     @property
     def expiresAt(self) -> int:
         """
         The time when the job expires
-        
+
         The format is "YYYYMMDDhhmmss" (In timezone from the timezone property)
         Returns:
             int: The time when the job expires
         """
         return self._expiresAt
-    
+
     @timezone.setter
     def timezone(self, value: str):
         self._timezone = value
-        
+
     @expiresAt.setter
     def expiresAt(self, value: int):
         self._expiresAt = value
-    
+
     def eval(self):
         return {
             "timezone": self.timezone,
@@ -138,6 +142,7 @@ class JobSchedule:
             "months": self.months,
             "wdays": self.wdays,
         }
+
 
 class JobType:
     int
@@ -269,42 +274,49 @@ class DetailedJob(Job):
 
     def __str__(self):
         return json.dumps(self.eval())
-    
+
+
 class Jobs:
     _jobs: dict[str, Job] = {}
 
     @classmethod
     def set_jobs(cls, jobs: list[Job]):
-        """ Set the jobs for the class
-        
+        """Set the jobs for the class
+
         The jobs are stored in a dictionary with the title as the key
 
         Args:
             jobs (list[Job]): A list of jobs class
         """
-        
+
         jobs = [Job(**job) for job in jobs]
         cls._jobs = {job.title: job for job in jobs}
 
     @classmethod
-    def add_job(cls, job: DetailedJob) -> any:
-        """ Add a job to the class
+    def add_job(cls, job: DetailedJob) -> requests.Response:
+        """Add a job to the class
 
         Args:
             job (Job): The job to add
 
         Returns:
-            any: The response from the API
+            Response: The response from the API
         """
-        
+
         if cls._jobs.get(job.title):
             payload = job.eval()
-            response = requests.patch(url + f"/jobs/{cls._jobs[job.title].jobId}", json={"job": payload}, headers=headers)
+            response = requests.patch(
+                url + f"/jobs/{cls._jobs[job.title].jobId}",
+                json={"job": payload},
+                headers=headers,
+            )
             return response
-        
+
         else:
             payload = job.eval()
-            response = requests.put(url + "/jobs", json={"job": payload}, headers=headers)
+            response = requests.put(
+                url + "/jobs", json={"job": payload}, headers=headers
+            )
             cls._jobs[job.title] = job
             return response
 
@@ -315,20 +327,23 @@ class Jobs:
     @classmethod
     def get_jobs(cls):
         return cls._jobs
-    
-    @classmethod
-    def sync_jobs(cls):
-        """Sync all cron jobs from the API
 
+    @classmethod
+    def sync_jobs(cls) -> requests.Response:
+        """Sync all cron jobs from the API
+        If the response status is 200, the jobs are set to the class
+        If the response status is 429, it means that a rate limit has been reached
         Returns:
-            _type_: The jobs from the API
+            Response: The jobs from the API
         """
         response = requests.get(url + "/jobs", headers=headers)
-        cls.set_jobs(jobs=response.json()["jobs"])
-        return cls.get_jobs()
-    
+        if response.status_code == 200:
+            cls.set_jobs(jobs=response.json()["jobs"])
+            return cls.get_jobs()
+        return response
 
-def create_cron_job(code: str, booking_time: datetime) -> str:
+
+def create_cron_job(code: str, booking_time: datetime, chat_id: str) -> str:
     """Create a cron job to check in for a booking
 
     Args:
@@ -345,9 +360,9 @@ def create_cron_job(code: str, booking_time: datetime) -> str:
             extendedData=JobExtendedData(
                 headers={
                     "Content-Type": "application/json",
-                    "Authorization": f"Bearer {api_key}",
+                    "Authorization": f"Bearer {config.CRON_JOB_API_KEY1}",
                 },
-                body=json.dumps({"code": code}),
+                body=json.dumps({"code": code, "chat_id": chat_id}),
             ),
         )
         payload.eval()
@@ -370,26 +385,22 @@ def create_cron_job(code: str, booking_time: datetime) -> str:
         # Specific time
         hour = booking_time.hour
         minute = booking_time.minute
-        day = datetime.now().day
-        month = datetime.now().month
-        year = datetime.now().year
-        weekday = datetime.now().strftime("%A")
+        day = booking_time.day
+        month = booking_time.month
+        year = booking_time.year
+        weekday = booking_time.strftime("%A")
         print(hour, minute, day, month, year, weekday)
 
         day_of_week_number = day_to_number.get(weekday, "*")
-
-        # Create the cron job configuration
-        minute += 5
-        if minute >= 60:
-            minute -= 60
-            hour += 1
 
         # Ensure hour, minute, day, and month are two characters long
         hour_str = str(hour).zfill(2)
         minute_str = str(minute).zfill(2)
         day_str = str(day).zfill(2)
         month_str = str(month).zfill(2)
-        payload.schedule.expiresAt = int(f"{year}{month_str}{day_str}{hour_str}{minute_str}01")  
+        payload.schedule.expiresAt = int(
+            f"{year}{month_str}{day_str}{hour_str}{minute_str}01"
+        )
         print(payload.schedule.expiresAt)
         payload.schedule.minutes = [minute]
         payload.schedule.hours = [hour]
@@ -397,11 +408,20 @@ def create_cron_job(code: str, booking_time: datetime) -> str:
         payload.schedule.wdays = [day_of_week_number]
         payload.schedule.mdays = [day]
         response = Jobs.add_job(payload)
-        
-        print(response.json())
         return response.json()
     except Exception as e:
         raise e
 
-print(Jobs.sync_jobs())
-# bubu(text="6tuj",res="Unable to Check In for this booking until 8:55am Saturday, November 2, 2024 (booking starts at 9:00am Saturday, November 2, 2024).")
+
+# try:
+#     response = Jobs.sync_jobs()
+#     if response.status_code == 429:
+#         print("Rate limit reached")
+#         headers = {
+#             "Content-Type": "application/json",
+#             "Authorization": f"Bearer {config.CRON_JOB_API_KEY1}",
+#         }
+#         response = Jobs.sync_jobs()
+# except Exception as e:
+#     print("Error: Unable to sync jobs", e, traceback.print_exc())
+# # bubu(text="6tuj",res="Unable to Check In for this booking until 8:55am Saturday, November 2, 2024 (booking starts at 9:00am Saturday, November 2, 2024).")
