@@ -205,7 +205,7 @@ def handleCode(user_id: str, chat_id: str, code: str) -> bool:
             send_message(chat_id,f"Your code has been successfully executed !!!")
             return True
         time = time + timedelta(minutes=5)
-        time = time - timedelta(minutes=60)
+        time = time - timedelta(minutes=60*8)
         time = time.astimezone(singapore_tz)  # Make `time` offset-aware
         cronjob.create_cron_job(code, time,chat_id=chat_id)
         now = datetime.now(singapore_tz)
