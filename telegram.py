@@ -117,7 +117,4 @@ class Message:
                 "text": self.text}.items() if v is not None}
 
     def __str__(self) -> str:
-        return f"Message {
-            self.message_id} from {
-            self.from_user} in {
-            self.chat}"
+        return f"Message {self.message_id} from {self.from_user} in {self.chat}"

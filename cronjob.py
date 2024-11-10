@@ -305,23 +305,10 @@ class Jobs:
         Returns:
             Response: The response from the API
         """
-
-        if cls._jobs.get(job.title):
-            payload = job.eval()
-            response = requests.patch(
-                url + f"/jobs/{cls._jobs[job.title].jobId}",
-                json={"job": payload},
-                headers=headers,
-            )
-            return response
-
-        else:
-            payload = job.eval()
-            response = requests.put(
-                url + "/jobs", json={"job": payload}, headers=headers
-            )
-            cls._jobs[job.title] = job
-            return response
+        payload = job.eval()
+        response = requests.put(f"{url}/jobs", json={"job": payload}, headers=headers)
+        cls._jobs[job.title] = job
+        return response
 
     @classmethod
     def __str__(cls):
@@ -339,7 +326,7 @@ class Jobs:
         Returns:
             Response: The jobs from the API
         """
-        response = requests.get(url + "/jobs", headers=headers)
+        response = requests.get(f"{url}/jobs", headers=headers)
         if response.status_code == 200:
             cls.set_jobs(jobs=response.json()["jobs"])
             return cls.get_jobs()
@@ -363,7 +350,7 @@ def create_cron_job(code: str, booking_time: datetime, chat_id: str) -> str:
             extendedData=JobExtendedData(
                 headers={
                     "Content-Type": "application/json",
-                    "Authorization": f"Bearer {config.CRON_JOB_API_KEY1}",
+                    "Authorization": f"Bearer {config.CRON_JOB_API_KEY}",
                 },
                 body=json.dumps({"code": code, "chat_id": chat_id}),
             ),
@@ -387,6 +374,7 @@ def create_cron_job(code: str, booking_time: datetime, chat_id: str) -> str:
 
         # Specific time
         hour = booking_time.hour
+        print(hour)
         minute = booking_time.minute
         day = booking_time.day
         month = booking_time.month
@@ -401,9 +389,7 @@ def create_cron_job(code: str, booking_time: datetime, chat_id: str) -> str:
         minute_str = str(minute).zfill(2)
         day_str = str(day).zfill(2)
         month_str = str(month).zfill(2)
-        payload.schedule.expiresAt = int(
-            f"{year}{month_str}{day_str}{hour_str}{minute_str}01"
-        )
+        payload.schedule.expiresAt = int(f"{year}{month_str}{day_str}{hour_str}{minute_str}01")
         print(payload.schedule.expiresAt)
         payload.schedule.minutes = [minute]
         payload.schedule.hours = [hour]
@@ -411,6 +397,8 @@ def create_cron_job(code: str, booking_time: datetime, chat_id: str) -> str:
         payload.schedule.wdays = [day_of_week_number]
         payload.schedule.mdays = [day]
         response = Jobs.add_job(payload)
+        print(response.text)
+        print(response.status_code)
         return response.json()
     except Exception as e:
         raise e

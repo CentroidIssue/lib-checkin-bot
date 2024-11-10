@@ -118,7 +118,6 @@ def handle_command(user_id: str, chat_id: str, command: str):
 
 
 def send_message(chat_id, text):
-    """Send message to telegram"""
     url = f"https://api.telegram.org/bot{config.BOT_TOKEN}/sendMessage"
     data = {"chat_id": chat_id, "text": text}
     requests.post(url, json=data)
@@ -134,8 +133,7 @@ def setWebhook(url: str) -> Union[str, dict]:
         Union[str, dict]: Response from the API, either error message or success message
     """
     try:
-        url = f"https://api.telegram.org/bot{
-            config.BOT_TOKEN}/setWebhook?url={url}"
+        url = f"https://api.telegram.org/bot{config.BOT_TOKEN}/setWebhook?url={url}/webhook"
         print(url)
         response = requests.get(url)
         return response.json()
@@ -143,7 +141,7 @@ def setWebhook(url: str) -> Union[str, dict]:
         raise e
 
 
-def handleCode(chat_id: str, code: str) -> bool:
+def handleCode(user_id: str, chat_id: str, code: str) -> bool:
     """Handle the checkin code from the user
 
     Args:
@@ -204,22 +202,18 @@ def handleCode(chat_id: str, code: str) -> bool:
 
         time = extract_date_time(response)
         if time is None:
-            return False
-
+            send_message(chat_id,f"Your code has been successfully executed !!!")
+            return True
         time = time + timedelta(minutes=5)
+        time = time - timedelta(minutes=60)
         time = time.astimezone(singapore_tz)  # Make `time` offset-aware
-        cronjob.create_cron_job(code, time)
-
+        cronjob.create_cron_job(code, time,chat_id=chat_id)
         now = datetime.now(singapore_tz)
         time_difference = time - now
-
         hours, remainder = divmod(time_difference.total_seconds(), 3600)
         minutes, seconds = divmod(remainder, 60)
-
-        send_message(
-            chat_id, f"The code will be executed at {time} ({
-                int(hours)} hours {
-                int(minutes)} minutes later)", )
+        print(time.hour)
+        send_message(chat_id, f"The code will be executed at {time} ({int(hours)} hours {int(minutes)} minutes later)", )
 
         return True
 
@@ -251,57 +245,24 @@ def sendCode(code: str) -> requests.Response:
     return response
 
 
-def extract_date_time(res: str) -> date:
-    """Extract the date and time from the response
-
-    Args:
-        res (str): The response from the server
-
-    Raises:
-        e: Error when parsing the time
-
-    Returns:
-        datetime: The datetime object of the booking time
-    """
-    pattern = r"until (\d{1,2}:\d{2}[ap]m) ([A-Za-z]+), ([A-Za-z]+ \d{1,2}, \d{4})"
-    match = re.search(pattern, res)
-
-    # If the response is in the format "until 9:10am Tuesday, October 29, 2024", extract the date and time
-    # An example is
-    #   'Unable to Check In for this booking until 10:55am Friday, November 8, 2024 (booking starts at 11:00am Friday, November 8, 2024).'
-    try:
-        if match:
-            time_str = match.group(1)  # "9:10am"
-            weekday_str = match.group(2)  # "Tuesday"
-            date_str = match.group(3)  # "October 29, 2024"
-
-            # Convert the date and time to a datetime object
-
-            return datetime.strptime(
-                f"{date_str} {time_str}",
-                "%B %d, %Y %I:%M%p")
-
+def extract_date_time(message:str) -> date:
+    # Regular expression to match the date and time format
+    match = re.search(r'until (\d{1,2}:\d{2}\w{2} [A-Za-z]+, [A-Za-z]+ \d{1,2}, \d{4})', message)
+    if match:
+        time_str = match.group(1)
+        # Convert the extracted string into a datetime object
+        print(time_str)
+        booking_time = datetime.strptime(time_str, "%I:%M%p %A, %B %d, %Y")
+        return booking_time
+    else:
         pattern = r"until (\d{1,2}:\d{2}[ap]m).*?(\d{1,2}:\d{2}[ap]m)"
-
-        # If the response is in the format "Unable to Check In for this booking until 7:55pm (booking starts at 8:00pm).", extract the time
-        # An example is
-        #   'Unable to Check In for this booking until 8:55am Saturday, November 2, 2024 (booking starts at 9:00am Saturday, November 2, 2024).'
-        # This is likely the case when the booking is available on the same day
-        match = re.search(pattern, res)  # "7:55am"
-        if match:
-            check_in_time = match.group(1)
-            date_str = date.today().strftime("%B %d, %Y")
-            return datetime.strptime(
-                f"{date_str} {check_in_time}",
-                "%B %d, %Y %I:%M%p")
-        else:
-            # Likely due to already checkedin
-            return None
-
-    except Exception as e:
-        # Time is not in the correct format
-        raise e
-
+        match = re.search(pattern, message)
+        booking_start_time_str = match.group(1)  
+        today = datetime.now(singapore_tz)
+        print(booking_start_time_str)
+        booking_start_time = datetime.strptime(booking_start_time_str, "%I:%M%p").replace(year=today.year, month=today.month, day=today.day)
+        return booking_start_time
+    return None
 
 if __name__ == "__main__":
     # print(setWebhook(config.WEBHOOK_URL))
