@@ -257,11 +257,12 @@ def extract_date_time(message:str) -> date:
     else:
         pattern = r"until (\d{1,2}:\d{2}[ap]m).*?(\d{1,2}:\d{2}[ap]m)"
         match = re.search(pattern, message)
-        booking_start_time_str = match.group(1)  
-        today = datetime.now(singapore_tz)
-        print(booking_start_time_str)
-        booking_start_time = datetime.strptime(booking_start_time_str, "%I:%M%p").replace(year=today.year, month=today.month, day=today.day)
-        return booking_start_time
+        if match:
+            booking_start_time_str = match.group(1)  
+            today = datetime.now(singapore_tz)
+            print(booking_start_time_str)
+            booking_start_time = datetime.strptime(booking_start_time_str, "%I:%M%p").replace(year=today.year, month=today.month, day=today.day)
+            return booking_start_time
     return None
 
 if __name__ == "__main__":
