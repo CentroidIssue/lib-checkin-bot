@@ -203,6 +203,38 @@ def handleCode(user_id: str, chat_id: str, code: str) -> bool:
         time = extract_date_time(response)
         if time is None:
             send_message(chat_id,f"Your code has been successfully executed !!!")
+            response_json = json.loads(response)
+            html_content = response_json.get("html", "")
+            soup = BeautifulSoup(html_content, "html.parser")
+
+            name_email = (
+                soup.find(
+                    "dt",
+                    text="Name / Email:").find_next("dd").text.strip())
+            name, email = name_email.split(" / ")
+            location = soup.find(
+                "dt", text="Location:").find_next("dd").text.strip()
+            space = soup.find("dt", text="Space:").find_next("dd").text.strip()
+            start_time = (
+                soup.find(
+                    "dt",
+                    text="Start Time:").find_next("dd").text.strip())
+            check_out_time = (
+                soup.find(
+                    "dt",
+                    text="Check Out time:").find_next("dd").text.strip())
+
+            print("Name:", name)
+            print("Email:", email)
+            print("Location:", location)
+            print("Space:", space)
+            print("Start Time:", start_time)
+            print("Check Out Time:", check_out_time)
+
+            send_message(
+                chat_id,
+                f"Name: {name}\nEmail: {email}\nLocation: {location}\nSpace: {space}\nStart Time: {start_time}\nCheck Out Time: {check_out_time}",
+            )
             return True
         time = time + timedelta(minutes=5)
         time = time - timedelta(minutes=60*8)
